@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
-  Package, 
-  ShoppingCart, 
+  BookOpen, 
+  MessageSquare, 
   Users, 
   Settings, 
   TrendingUp, 
-  DollarSign, 
+  Star, 
   Clock, 
   Plus, 
   Search, 
@@ -22,7 +22,7 @@ import {
   LogOut,
   Menu,
   X,
-  CreditCard,
+  Trophy,
   Target,
   Edit,
   Trash2,
@@ -32,130 +32,238 @@ import {
   Layers,
   Shield,
   Activity,
-  BarChart3
+  BarChart3,
+  CheckCircle2,
+  Brain,
+  Send
 } from 'lucide-react';
-import { PRODUCTS } from '../data/products';
+import toast from 'react-hot-toast';
+import { supabase } from '../lib/supabase';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [products, setProducts] = useState(PRODUCTS);
-  const [orders, setOrders] = useState([
-    { id: '#ORD-7234', customer: 'Alice Johnson', date: 'Oct 24, 2024', status: 'Delivered', amount: 299.99, email: 'alice@example.com', items: 3 },
-    { id: '#ORD-7235', customer: 'Bob Smith', date: 'Oct 24, 2024', status: 'Pending', amount: 159.00, email: 'bob@example.com', items: 1 },
-    { id: '#ORD-7236', customer: 'Charlie Davis', date: 'Oct 23, 2024', status: 'Shipped', amount: 89.99, email: 'charlie@example.com', items: 2 },
-    { id: '#ORD-7237', customer: 'Diana Prince', date: 'Oct 23, 2024', status: 'Processing', amount: 1249.00, email: 'diana@example.com', items: 1 },
-    { id: '#ORD-7238', customer: 'Ethan Hunt', date: 'Oct 22, 2024', status: 'Delivered', amount: 129.50, email: 'ethan@example.com', items: 4 },
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch initial requests and setup real-time listener
+  useEffect(() => {
+    const fetchRequests = async () => {
+      const { data, error } = await supabase
+        .from('requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching requests:', error);
+        toast.error('Failed to load live requests');
+      } else {
+        // Map data to match our UI structure if needed
+        const mappedData = data.map(r => ({
+          ...r,
+          date: new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          helpers: r.helpers || 0
+        }));
+        setRequests(mappedData);
+      }
+      setLoading(false);
+    };
+
+    fetchRequests();
+
+    // Setup Realtime Subscription
+    const channel = supabase
+      .channel('requests_db_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'requests' }, 
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newReq = {
+              ...payload.new,
+              date: new Date(payload.new.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              helpers: payload.new.helpers || 0
+            };
+            setRequests(prev => [newReq, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setRequests(prev => prev.map(r => r.id === payload.new.id ? {
+              ...payload.new,
+              date: new Date(payload.new.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              helpers: payload.new.helpers || 0
+            } : r));
+          } else if (payload.eventType === 'DELETE') {
+            setRequests(prev => prev.filter(r => r.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const [interactions, setInteractions] = useState([
+    { id: '#INT-7234', peer: 'Alice Johnson', date: 'Oct 24, 2024', status: 'Connected', topic: 'JavaScript Debugging', email: 'alice@example.com', messages: 12 },
+    { id: '#INT-7235', peer: 'Bob Smith', date: 'Oct 24, 2024', status: 'Pending', topic: 'Figma Review', email: 'bob@example.com', messages: 0 },
+    { id: '#INT-7236', peer: 'Charlie Davis', date: 'Oct 23, 2024', status: 'Solved', topic: 'CSS Grid Layout', email: 'charlie@example.com', messages: 24 },
+    { id: '#INT-7237', peer: 'Diana Prince', date: 'Oct 23, 2024', status: 'Active', topic: 'Career Path Talk', email: 'diana@example.com', messages: 8 },
+    { id: '#INT-7238', peer: 'Evan Wright', date: 'Oct 25, 2024', status: 'Connected', topic: 'React Hooks', email: 'evan@example.com', messages: 4 },
+    { id: '#INT-7239', peer: 'Fiona Glen', date: 'Oct 25, 2024', status: 'Pending', topic: 'Logo Design', email: 'fiona@example.com', messages: 0 },
   ]);
 
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [showOrderModal, setShowOrderModal] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [withdrawalAmount, setWithdrawalAmount] = useState('42850.00');
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
-
-  const [newProduct, setNewProduct] = useState({
-    name: '',
-    price: '',
-    category: 'Electronics',
-    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop',
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [editingRequest, setEditingRequest] = useState(null);
+  const [showInteractionModal, setShowInteractionModal] = useState(false);
+  const [selectedInteraction, setSelectedInteraction] = useState(null);
+  const [showRewardModal, setShowRewardModal] = useState(false);
+  const [showMentorshipModal, setShowMentorshipModal] = useState(false);
+  const [selectedMentor, setSelectedMentor] = useState(null);
+  
+  const [newRequest, setNewRequest] = useState({
+    title: '',
+    category: 'Web Development',
+    urgency: 'Medium',
     description: '',
-    stock: 50
+    tags: ''
   });
 
   const [notifications, setNotifications] = useState([
-    { id: 1, title: 'New order received', time: '5m ago', type: 'order', read: false },
-    { id: 2, title: 'Low stock alert: Smart Watch', time: '1h ago', type: 'alert', read: false },
-    { id: 3, title: 'Payment of $1,240 confirmed', time: '2h ago', type: 'payment', read: true },
+    { id: 1, title: 'New response to your JS request', time: '5m ago', type: 'message', read: false },
+    { id: 2, title: 'Badge Unlocked: Quick Helper', time: '1h ago', type: 'achievement', read: false },
+    { id: 3, title: 'Weekly study summary ready', time: '2h ago', type: 'system', read: true },
   ]);
 
-  const [customers, setCustomers] = useState([
-    { id: 1, name: 'Alice Johnson', email: 'alice@example.com', orders: 12, spent: 2450.00, status: 'Active', avatar: 'https://i.pravatar.cc/150?u=alice' },
-    { id: 2, name: 'Bob Smith', email: 'bob@example.com', orders: 5, spent: 840.50, status: 'Active', avatar: 'https://i.pravatar.cc/150?u=bob' },
-    { id: 3, name: 'Charlie Davis', email: 'charlie@example.com', orders: 8, spent: 1200.00, status: 'Inactive', avatar: 'https://i.pravatar.cc/150?u=charlie' },
-    { id: 4, name: 'Diana Prince', email: 'diana@example.com', orders: 20, spent: 5600.00, status: 'Active', avatar: 'https://i.pravatar.cc/150?u=diana' },
-    { id: 5, name: 'Ethan Hunt', email: 'ethan@example.com', orders: 15, spent: 3100.25, status: 'Active', avatar: 'https://i.pravatar.cc/150?u=ethan' },
+  const [peers, setPeers] = useState([
+    { id: 1, name: 'Alice Johnson', email: 'alice@example.com', solved: 12, points: 2450, status: 'Active', avatar: 'https://i.pravatar.cc/150?u=alice' },
+    { id: 2, name: 'Bob Smith', email: 'bob@example.com', solved: 5, points: 840, status: 'Active', avatar: 'https://i.pravatar.cc/150?u=bob' },
+    { id: 3, name: 'Charlie Davis', email: 'charlie@example.com', solved: 8, points: 1200, status: 'Offline', avatar: 'https://i.pravatar.cc/150?u=charlie' },
+    { id: 4, name: 'Diana Prince', email: 'diana@example.com', solved: 20, points: 5600, status: 'Active', avatar: 'https://i.pravatar.cc/150?u=diana' },
+    { id: 5, name: 'Evan Wright', email: 'evan@example.com', solved: 15, points: 3100, status: 'Active', avatar: 'https://i.pravatar.cc/150?u=evan' },
+    { id: 6, name: 'Fiona Glen', email: 'fiona@example.com', solved: 3, points: 450, status: 'Offline', avatar: 'https://i.pravatar.cc/150?u=fiona' },
+    { id: 7, name: 'George Hill', email: 'george@example.com', solved: 25, points: 7200, status: 'Active', avatar: 'https://i.pravatar.cc/150?u=george' },
+    { id: 8, name: 'Hannah Abbott', email: 'hannah@example.com', solved: 10, points: 1900, status: 'Active', avatar: 'https://i.pravatar.cc/150?u=hannah' },
   ]);
 
-  const [transactions, setTransactions] = useState([
-    { id: 'TXN-9021', method: 'Visa **** 4242', date: 'Oct 24, 2024', amount: 299.99, status: 'Completed', type: 'Income' },
-    { id: 'TXN-9022', method: 'PayPal', date: 'Oct 24, 2024', amount: 159.00, status: 'Completed', type: 'Income' },
-    { id: 'TXN-9023', method: 'Bank Transfer', date: 'Oct 22, 2024', amount: 5000.00, status: 'Pending', type: 'Withdrawal' },
-    { id: 'TXN-9024', method: 'MasterCard **** 8812', date: 'Oct 21, 2024', amount: 89.99, status: 'Completed', type: 'Income' },
-  ]);
-
-  const [liveTraffic, setLiveTraffic] = useState(124);
+  const [studyTime, setStudyTime] = useState(124);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [msgInput, setMsgInput] = useState('');
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   
+  // Initialize dummy messages when interaction is selected
+  useEffect(() => {
+    if (selectedInteraction) {
+      if (selectedInteraction.messages > 0) {
+        setChatMessages([
+          { id: 1, sender: selectedInteraction.peer, text: `Hey! I saw your request about ${selectedInteraction.topic}. I've had some experience with this recently and would love to help out.`, time: '10:24 AM', isMe: false },
+          { id: 2, sender: 'Me', text: "That would be awesome! I'm specifically struggling with the implementation details. When are you free to hop on a quick call?", time: '10:26 AM', isMe: true },
+          { id: 3, sender: selectedInteraction.peer, text: "I'm free this afternoon around 4 PM. Does that work for you?", time: '10:30 AM', isMe: false },
+        ]);
+      } else {
+        setChatMessages([]);
+      }
+    }
+  }, [selectedInteraction]);
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (!msgInput.trim()) return;
+
+    const newMsg = {
+      id: Date.now(),
+      sender: 'Me',
+      text: msgInput,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isMe: true
+    };
+
+    setChatMessages([...chatMessages, newMsg]);
+    setMsgInput('');
+  };
+
+  const startPeerConversation = (peer) => {
+    const existing = interactions.find(i => i.email === peer.email);
+    if (existing) {
+      setSelectedInteraction(existing);
+    } else {
+      setSelectedInteraction({
+        id: `NEW-${peer.id}`,
+        peer: peer.name,
+        email: peer.email,
+        topic: 'General Chat',
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        messages: 0
+      });
+    }
+    setShowInteractionModal(true);
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
-      setLiveTraffic(prev => Math.max(100, prev + Math.floor(Math.random() * 11) - 5));
+      setStudyTime(prev => Math.max(100, prev + Math.floor(Math.random() * 3) - 1));
     }, 5000);
     return () => clearInterval(interval);
   }, []);
 
   const stats = [
-    { title: 'Total Revenue', value: '$124,592.00', change: '+12.5%', icon: DollarSign, color: 'bg-emerald-500', trend: 'up', tab: 'Revenue' },
-    { title: 'Total Orders', value: '1,248', change: '+8.2%', icon: ShoppingCart, color: 'bg-blue-500', trend: 'up', tab: 'Orders' },
-    { title: 'Total Customers', value: '892', change: '+3.1%', icon: Users, color: 'bg-purple-500', trend: 'up', tab: 'Customers' },
-    { title: 'Store Growth', value: '24.5%', change: '+5.4%', icon: TrendingUp, color: 'bg-orange-500', trend: 'up', tab: 'Analytics' },
+    { title: 'Solved Requests', value: '42', change: '+12.5%', icon: CheckCircle2, color: 'bg-brand-teal', trend: 'up', tab: 'My Requests' },
+    { title: 'Community Points', value: '1,250', change: '+8.2%', icon: Star, color: 'bg-brand-orange', trend: 'up', tab: 'Reputation' },
+    { title: 'Helpful Peers', value: '89', change: '+3.1%', icon: Users, color: 'bg-brand-dark', trend: 'up', tab: 'Community' },
+    { title: 'Global Rank', value: 'Top 5%', change: '+5.4%', icon: Trophy, color: 'bg-[#167D75]', trend: 'up', tab: 'Analytics' },
   ];
 
-  const team = [
-    { name: 'Admin User', role: 'Store Owner', email: 'admin@luxe.com', status: 'Active', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=1000&auto=format&fit=crop' },
-    { name: 'Sarah Miller', role: 'Inventory Manager', email: 'sarah@luxe.com', status: 'Online', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1000&auto=format&fit=crop' },
-    { name: 'James Wilson', role: 'Support Agent', email: 'james@luxe.com', status: 'Offline', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1000&auto=format&fit=crop' },
+  const mentors = [
+    { name: 'Dr. Sarah Smith', role: 'Lead Mentor', email: 'sarah@helphub.ai', status: 'Online', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&auto=format&fit=crop' },
+    { name: 'James Wilson', role: 'Senior Developer', email: 'james@helphub.ai', status: 'Online', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop' },
+    { name: 'Ayesha Khan', role: 'UI/UX Expert', email: 'ayesha@helphub.ai', status: 'Offline', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=200&auto=format&fit=crop' },
+    { name: 'Marcus Chen', role: 'Marketing Pro', email: 'marcus@helphub.ai', status: 'Online', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=200&auto=format&fit=crop' },
+    { name: 'Elena Rodriguez', role: 'Cloud Architect', email: 'elena@helphub.ai', status: 'Online', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=200&auto=format&fit=crop' },
+    { name: 'Samir Gupta', role: 'Data Scientist', email: 'samir@helphub.ai', status: 'Offline', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=200&auto=format&fit=crop' },
   ];
 
-  const handleProductSubmit = (e) => {
+  const handleRequestSubmit = (e) => {
     e.preventDefault();
-    if (editingProduct) {
-      setProducts(products.map(p => p.id === editingProduct.id ? { ...editingProduct, price: parseFloat(editingProduct.price) } : p));
-      alert('Product updated successfully!');
+    if (editingRequest) {
+      setRequests(requests.map(r => r.id === editingRequest.id ? editingRequest : r));
+      toast.success('Request updated successfully!');
     } else {
-      const productToAdd = {
-        ...newProduct,
-        id: Math.max(...products.map(p => p.id)) + 1,
-        price: parseFloat(newProduct.price)
+      const requestToAdd = {
+        ...newRequest,
+        id: Date.now(),
+        status: 'Open',
+        helpers: 0,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       };
-      setProducts([productToAdd, ...products]);
-      alert('Product added successfully!');
+      setRequests([requestToAdd, ...requests]);
+      toast.success('Help request posted to the community!');
     }
-    setShowProductModal(false);
-    setEditingProduct(null);
-    setNewProduct({
-      name: '', price: '', category: 'Electronics', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop', description: '', stock: 50
-    });
+    setShowRequestModal(false);
+    setEditingRequest(null);
+    setNewRequest({ title: '', category: 'Web Development', urgency: 'Medium', description: '', tags: '' });
   };
 
-  const deleteProduct = (id) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      setProducts(products.filter(p => p.id !== id));
-    }
+  const handleMentorshipRequest = (mentor) => {
+    console.log('Requesting mentorship from:', mentor.name);
+    setSelectedMentor(mentor);
+    setShowMentorshipModal(true);
   };
 
-  const handleWithdraw = (e) => {
-    e.preventDefault();
-    setIsWithdrawing(true);
-    setTimeout(() => {
-      setIsWithdrawing(false);
-      setShowWithdrawModal(false);
-      alert('Withdrawal request submitted successfully! Funds will arrive in 2-3 business days.');
-    }, 2000);
+  const deleteRequest = (id) => {
+    if (window.confirm('Are you sure you want to delete this request?')) {
+      setRequests(requests.filter(r => r.id !== id));
+    }
   };
 
   const sidebarLinks = [
     { name: 'Overview', icon: LayoutDashboard },
-    { name: 'Products', icon: Package },
-    { name: 'Orders', icon: ShoppingCart },
-    { name: 'Customers', icon: Users },
-    { name: 'Revenue', icon: DollarSign },
+    { name: 'My Requests', icon: BookOpen },
+    { name: 'Interactions', icon: MessageSquare },
+    { name: 'Community', icon: Users },
+    { name: 'Reputation', icon: Star },
     { name: 'Analytics', icon: Activity },
-    { name: 'Payments', icon: CreditCard },
-    { name: 'Team', icon: Shield },
+    { name: 'Mentors', icon: Shield },
     { name: 'Settings', icon: Settings },
   ];
 
@@ -166,14 +274,14 @@ const Dashboard = () => {
           <div className="space-y-8 animate-in fade-in duration-500">
             {/* Quick Actions */}
             <div className="flex flex-wrap gap-4">
-              <button onClick={() => { setEditingProduct(null); setShowProductModal(true); }} className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2">
-                <Plus size={18} /> New Product
+              <button onClick={() => { setEditingRequest(null); setShowRequestModal(true); }} className="px-6 py-3 bg-brand-teal text-white font-bold rounded-xl shadow-lg hover:bg-brand-teal/80 transition-all flex items-center gap-2">
+                <Plus size={18} /> New Request
               </button>
-              <button onClick={() => setActiveTab('Orders')} className="px-6 py-3 bg-white border border-gray-100 text-slate-900 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
-                <ShoppingCart size={18} /> Process Orders
+              <button onClick={() => setActiveTab('Interactions')} className="px-6 py-3 bg-white border border-gray-100 text-brand-dark font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
+                <MessageSquare size={18} /> View Messages
               </button>
-              <button onClick={() => setActiveTab('Analytics')} className="px-6 py-3 bg-white border border-gray-100 text-slate-900 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
-                <BarChart3 size={18} /> Daily Report
+              <button onClick={() => setActiveTab('Analytics')} className="px-6 py-3 bg-white border border-gray-100 text-brand-dark font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
+                <BarChart3 size={18} /> Study Stats
               </button>
             </div>
 
@@ -185,42 +293,42 @@ const Dashboard = () => {
                     <div className={`p-3 rounded-2xl ${stat.color} text-white shadow-lg`}>
                       <stat.icon size={24} />
                     </div>
-                    <div className={`flex items-center gap-1 text-sm font-bold ${stat.trend === 'up' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {stat.trend === 'up' ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                    <div className="flex items-center gap-1 text-sm font-bold text-emerald-500">
+                      <ArrowUpRight size={16} />
                       {stat.change}
                     </div>
                   </div>
                   <h3 className="text-gray-400 font-medium text-sm mb-1">{stat.title}</h3>
-                  <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+                  <p className="text-2xl font-bold text-brand-dark">{stat.value}</p>
                 </div>
               ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Sales Chart */}
+              {/* Progress Chart */}
               <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
                 <div className="flex items-center justify-between mb-8">
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900">Revenue Stream</h3>
-                    <p className="text-sm text-gray-400">Weekly Performance Analytics</p>
+                    <h3 className="text-xl font-bold text-brand-dark">Study Progress</h3>
+                    <p className="text-sm text-gray-400">Activity signals across the week</p>
                   </div>
                   <div className="flex gap-2">
                     {['W', 'M', 'Y'].map(t => (
-                      <button key={t} className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all ${t === 'W' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}>
+                      <button key={t} className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all ${t === 'W' ? 'bg-brand-teal text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}>
                         {t}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div className="h-64 flex items-end justify-between gap-4 px-4">
-                  {[65, 45, 80, 55, 90, 70, 85].map((height, i) => (
+                  {[45, 30, 75, 55, 95, 60, 80].map((height, i) => (
                     <div key={i} className="flex-1 bg-slate-50 rounded-2xl relative group overflow-hidden">
                       <div 
-                        className="absolute bottom-0 w-full bg-indigo-600 rounded-t-2xl transition-all duration-1000 group-hover:bg-indigo-400"
+                        className="absolute bottom-0 w-full bg-brand-teal rounded-t-2xl transition-all duration-1000 group-hover:bg-brand-teal/70"
                         style={{ height: `${height}%` }}
                       >
-                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                          ${height * 10}
+                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-brand-dark text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                          {height}m
                         </div>
                       </div>
                     </div>
@@ -233,52 +341,53 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Activity Feed */}
+              {/* Interaction Feed */}
               <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                <h3 className="text-xl font-bold text-slate-900 mb-8">Recent Activity</h3>
+                <h3 className="text-xl font-bold text-brand-dark mb-8">Recent Activities</h3>
                 <div className="space-y-6">
                   {notifications.map((notif) => (
                     <div key={notif.id} className="flex gap-4 items-start group">
                       <div className={`p-2 rounded-xl flex-shrink-0 ${
-                        notif.type === 'order' ? 'bg-blue-50 text-blue-600' :
-                        notif.type === 'alert' ? 'bg-rose-50 text-rose-600' :
+                        notif.type === 'message' ? 'bg-blue-50 text-blue-600' :
+                        notif.type === 'achievement' ? 'bg-amber-50 text-amber-600' :
                         'bg-emerald-50 text-emerald-600'
                       }`}>
-                        {notif.type === 'order' ? <ShoppingCart size={18} /> : 
-                         notif.type === 'alert' ? <Bell size={18} /> : 
-                         <DollarSign size={18} />}
+                        {notif.type === 'message' ? <MessageSquare size={18} /> : 
+                         notif.type === 'achievement' ? <Trophy size={18} /> : 
+                         <Activity size={18} />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-bold truncate transition-colors ${notif.read ? 'text-slate-400' : 'text-slate-900 group-hover:text-indigo-600'}`}>
+                        <p className={`text-sm font-bold truncate transition-colors ${notif.read ? 'text-slate-400' : 'text-brand-dark group-hover:text-brand-teal'}`}>
                           {notif.title}
                         </p>
                         <p className="text-xs text-gray-400">{notif.time}</p>
                       </div>
-                      {!notif.read && <div className="w-2 h-2 bg-indigo-600 rounded-full mt-2"></div>}
+                      {!notif.read && <div className="w-2 h-2 bg-brand-teal rounded-full mt-2"></div>}
                     </div>
                   ))}
                 </div>
                 <button className="w-full mt-8 py-4 bg-slate-50 text-slate-600 font-bold rounded-2xl hover:bg-slate-100 transition-all text-sm">
-                  Clear All Notifications
+                  View All Activity
                 </button>
               </div>
             </div>
 
-            {/* Top Products Grid */}
+            {/* Top Requests */}
             <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
               <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-bold text-slate-900">Top Performing Products</h3>
-                <button onClick={() => setActiveTab('Products')} className="text-sm font-bold text-indigo-600 hover:underline">View All Inventory</button>
+                <h3 className="text-xl font-bold text-brand-dark">Active Help Requests</h3>
+                <button onClick={() => setActiveTab('My Requests')} className="text-sm font-bold text-brand-teal hover:underline">View All</button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {products.slice(0, 4).map((product) => (
-                  <div key={product.id} className="p-4 rounded-[2rem] bg-slate-50 border border-slate-100 flex items-center gap-4 hover:bg-white hover:shadow-xl transition-all cursor-pointer group">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white">
-                      <img src={product.image} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                {requests.slice(0, 4).map((req) => (
+                  <div key={req.id} className="p-5 rounded-[2rem] bg-slate-50 border border-slate-100 space-y-3 hover:bg-white hover:shadow-xl transition-all cursor-pointer group">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] font-bold text-brand-teal uppercase tracking-widest px-2 py-1 bg-brand-teal/10 rounded-lg">{req.category}</span>
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-900 truncate">{product.name}</p>
-                      <p className="text-xs text-indigo-600 font-bold">${product.price.toFixed(2)}</p>
+                    <p className="font-bold text-brand-dark truncate">{req.title}</p>
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <Clock size={12} />
+                      <span>{req.date}</span>
                     </div>
                   </div>
                 ))}
@@ -286,77 +395,47 @@ const Dashboard = () => {
             </div>
           </div>
         );
-      case 'Products':
+      case 'My Requests':
         return (
           <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
-                <h2 className="text-3xl font-bold text-slate-900">Product Management</h2>
-                <p className="text-gray-400">Inventory Status: <span className="text-emerald-500 font-bold">Optimal</span></p>
+                <h2 className="text-3xl font-bold text-brand-dark">My Study Requests</h2>
+                <p className="text-gray-400">Manage your active support needs</p>
               </div>
-              <div className="flex gap-4">
-                <button className="px-6 py-4 bg-white border border-gray-100 text-slate-600 font-bold rounded-2xl shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
-                  <Download size={18} /> Export
-                </button>
-                <button onClick={() => { setEditingProduct(null); setShowProductModal(true); }} className="px-8 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl hover:bg-indigo-600 transition-all flex items-center gap-2">
-                  <Plus size={18} /> New Product
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col md:flex-row items-center gap-4">
-              <div className="relative flex-1 group w-full">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600 transition-all" size={20} />
-                <input 
-                  type="text" 
-                  placeholder="Filter by product name, category or price..." 
-                  className="w-full bg-slate-50 border-none rounded-xl py-4 pl-12 pr-4 focus:ring-2 focus:ring-indigo-100 focus:bg-white transition-all outline-none font-medium"
-                />
-              </div>
-              <div className="flex gap-2">
-                {['All', 'Electronics', 'Fashion', 'Home'].map(cat => (
-                  <button key={cat} className="px-6 py-4 bg-slate-50 text-slate-600 font-bold rounded-xl border border-slate-100 hover:bg-indigo-600 hover:text-white transition-all whitespace-nowrap">
-                    {cat}
-                  </button>
-                ))}
-              </div>
+              <button onClick={() => { setEditingRequest(null); setShowRequestModal(true); }} className="px-8 py-4 bg-brand-dark text-white font-bold rounded-2xl shadow-xl hover:bg-brand-teal transition-all flex items-center gap-2">
+                <Plus size={18} /> New Request
+              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {products.map((product) => (
-                <div key={product.id} className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all group overflow-hidden flex flex-col">
-                  <div className="relative aspect-square overflow-hidden bg-slate-50">
-                    <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                    <div className="absolute top-4 right-4 flex flex-col gap-2 translate-x-12 group-hover:translate-x-0 transition-transform duration-300">
-                      <button onClick={() => { setEditingProduct(product); setShowProductModal(true); }} className="p-3 bg-white text-slate-900 rounded-xl shadow-lg hover:bg-indigo-600 hover:text-white transition-all">
-                        <Edit size={18} />
-                      </button>
-                      <button onClick={() => deleteProduct(product.id)} className="p-3 bg-white text-rose-600 rounded-xl shadow-lg hover:bg-rose-600 hover:text-white transition-all">
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                    <div className="absolute bottom-4 left-4">
-                      <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg ${
-                        product.stock < 10 ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'
-                      }`}>
-                        {product.stock < 10 ? 'Low Stock' : 'In Stock'}
-                      </span>
-                    </div>
+              {requests.map((req) => (
+                <div key={req.id} className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-2xl transition-all group relative">
+                  <div className="absolute top-6 right-6 flex gap-2">
+                    <button onClick={() => { setEditingRequest(req); setShowRequestModal(true); }} className="p-2 text-gray-400 hover:text-brand-teal transition-colors">
+                      <Edit size={16} />
+                    </button>
+                    <button onClick={() => deleteRequest(req.id)} className="p-2 text-gray-400 hover:text-rose-500 transition-colors">
+                      <Trash2 size={16} />
+                    </button>
                   </div>
-                  <div className="p-8 flex-1 flex flex-col">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest px-2 py-1 bg-indigo-50 rounded-lg">{product.category}</span>
-                    </div>
-                    <h4 className="font-bold text-slate-900 mb-4 text-lg leading-tight truncate">{product.name}</h4>
-                    <div className="mt-auto flex items-center justify-between border-t border-slate-50 pt-4">
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Price</p>
-                        <p className="text-xl font-black text-slate-900">${product.price.toFixed(2)}</p>
+                  <div className="space-y-6">
+                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${
+                      req.status === 'Solved' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'
+                    }`}>
+                      {req.status}
+                    </span>
+                    <h4 className="text-xl font-bold text-brand-dark leading-tight">{req.title}</h4>
+                    <div className="flex items-center justify-between pt-6 border-t border-slate-50">
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <Users size={14} />
+                        <span>{req.helpers} helpers</span>
                       </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Stock</p>
-                        <p className="font-bold text-slate-600">{product.stock} units</p>
-                      </div>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                        req.urgency === 'High' ? 'text-orange-500' : 'text-gray-400'
+                      }`}>
+                        {req.urgency} Priority
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -364,72 +443,55 @@ const Dashboard = () => {
             </div>
           </div>
         );
-      case 'Orders':
+      case 'Interactions':
         return (
           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900">Sales Transactions</h2>
-                <p className="text-gray-400">Real-time order tracking and fulfillment</p>
-              </div>
-              <div className="flex gap-4">
-                <div className="p-1 bg-white border border-gray-100 rounded-2xl flex shadow-sm">
-                  {['Pending', 'Fulfilled', 'Refunded'].map(s => (
-                    <button key={s} className="px-6 py-3 rounded-xl text-sm font-bold text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-all">
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
+            <h2 className="text-3xl font-bold text-brand-dark">Study Interactions</h2>
             <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-slate-50/50">
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Customer</th>
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Order ID</th>
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Items</th>
+                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Peer</th>
+                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Topic</th>
                       <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Total</th>
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Action</th>
+                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Messages</th>
+                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {orders.map((order) => (
-                      <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
+                    {interactions.map((interaction) => (
+                      <tr key={interaction.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-8 py-6">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
-                              {order.customer[0]}
+                            <div className="w-10 h-10 bg-brand-teal/10 text-brand-teal rounded-xl flex items-center justify-center font-bold">
+                              {interaction.peer[0]}
                             </div>
                             <div>
-                              <p className="font-bold text-slate-900">{order.customer}</p>
-                              <p className="text-xs text-gray-400">{order.email}</p>
+                              <p className="font-bold text-brand-dark">{interaction.peer}</p>
+                              <p className="text-xs text-gray-400">{interaction.email}</p>
                             </div>
                           </div>
                         </td>
                         <td className="px-8 py-6">
-                          <p className="font-bold text-slate-900">{order.id}</p>
-                          <p className="text-xs text-gray-400">{order.date}</p>
+                          <p className="font-bold text-brand-dark">{interaction.topic}</p>
+                          <p className="text-xs text-gray-400">{interaction.date}</p>
                         </td>
-                        <td className="px-8 py-6 font-medium text-slate-600">{order.items} items</td>
                         <td className="px-8 py-6">
                           <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                            order.status === 'Delivered' ? 'bg-emerald-100 text-emerald-600' :
-                            order.status === 'Pending' ? 'bg-amber-100 text-amber-600' :
-                            order.status === 'Shipped' ? 'bg-blue-100 text-blue-600' :
+                            interaction.status === 'Solved' ? 'bg-emerald-100 text-emerald-600' :
+                            interaction.status === 'Pending' ? 'bg-amber-100 text-amber-600' :
+                            interaction.status === 'Connected' ? 'bg-blue-100 text-blue-600' :
                             'bg-slate-100 text-slate-600'
                           }`}>
-                            {order.status}
+                            {interaction.status}
                           </span>
                         </td>
-                        <td className="px-8 py-6 font-black text-slate-900">${order.amount.toFixed(2)}</td>
+                        <td className="px-8 py-6 font-black text-brand-dark">{interaction.messages} msg</td>
                         <td className="px-8 py-6 text-right">
                           <button 
-                            onClick={() => { setSelectedOrder(order); setShowOrderModal(true); }}
-                            className="p-3 hover:bg-indigo-600 hover:text-white rounded-xl text-slate-400 transition-all border border-transparent hover:shadow-lg"
+                            onClick={() => { setSelectedInteraction(interaction); setShowInteractionModal(true); }}
+                            className="p-3 hover:bg-brand-teal hover:text-white rounded-xl text-slate-400 transition-all border border-transparent hover:shadow-lg"
                           >
                             <Eye size={20} />
                           </button>
@@ -442,98 +504,49 @@ const Dashboard = () => {
             </div>
           </div>
         );
-      case 'Team':
-        return (
-          <div className="space-y-8 animate-in fade-in duration-700">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900">Team Management</h2>
-                <p className="text-gray-400">Collaboration and permission settings</p>
-              </div>
-              <button className="px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
-                <Plus size={18} /> Invite Member
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {team.map((member, i) => (
-                <div key={i} className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm text-center relative overflow-hidden group">
-                  <div className="absolute top-4 right-4 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <MoreVertical size={20} className="text-slate-400 cursor-pointer hover:text-slate-900" />
-                  </div>
-                  <div className="w-24 h-24 mx-auto rounded-[2rem] overflow-hidden mb-6 ring-8 ring-slate-50 group-hover:ring-indigo-50 transition-all">
-                    <img src={member.avatar} alt="" className="w-full h-full object-cover" />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-1">{member.name}</h3>
-                  <p className="text-indigo-600 font-bold text-xs uppercase tracking-widest mb-6">{member.role}</p>
-                  
-                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl mb-6">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${member.status === 'Active' || member.status === 'Online' ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-                      <span className="text-xs font-bold text-slate-600">{member.status}</span>
-                    </div>
-                    <span className="text-xs font-medium text-gray-400">{member.email}</span>
-                  </div>
-
-                  <button className="w-full py-3 border border-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all text-sm">
-                    Manage Permissions
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      case 'Customers':
+      case 'Community':
         return (
           <div className="space-y-8 animate-in slide-in-from-left-4 duration-500">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900">Customer CRM</h2>
-                <p className="text-gray-400">Total Reach: <span className="text-indigo-600 font-bold">{customers.length} verified users</span></p>
-              </div>
-              <button className="px-8 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl hover:bg-indigo-600 transition-all flex items-center justify-center gap-2">
-                <Users size={18} /> Segment Users
-              </button>
-            </div>
-
+            <h2 className="text-3xl font-bold text-brand-dark">Community Peers</h2>
             <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-slate-50/50">
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Customer</th>
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Orders</th>
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Total Spent</th>
+                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Student</th>
+                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Requests Solved</th>
+                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Points</th>
                       <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {customers.map((customer) => (
-                      <tr key={customer.id} className="hover:bg-slate-50/50 transition-colors group">
+                    {peers.map((peer) => (
+                      <tr key={peer.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-8 py-6">
                           <div className="flex items-center gap-4">
-                            <img src={customer.avatar} alt="" className="w-12 h-12 rounded-2xl object-cover" />
+                            <img src={peer.avatar} alt="" className="w-12 h-12 rounded-2xl object-cover" />
                             <div>
-                              <p className="font-bold text-slate-900">{customer.name}</p>
-                              <p className="text-xs text-gray-400">{customer.email}</p>
+                              <p className="font-bold text-brand-dark">{peer.name}</p>
+                              <p className="text-xs text-gray-400">{peer.email}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-8 py-6">
-                          <p className="font-bold text-slate-600">{customer.orders} orders</p>
-                        </td>
-                        <td className="px-8 py-6 font-black text-slate-900">${customer.spent.toFixed(2)}</td>
+                        <td className="px-8 py-6 font-bold text-slate-600">{peer.solved}</td>
+                        <td className="px-8 py-6 font-black text-brand-dark">{peer.points}</td>
                         <td className="px-8 py-6">
                           <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                            customer.status === 'Active' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                            peer.status === 'Active' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
                           }`}>
-                            {customer.status}
+                            {peer.status}
                           </span>
                         </td>
                         <td className="px-8 py-6 text-right">
-                          <button className="p-3 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-xl transition-all">
-                            <MoreVertical size={20} />
+                          <button 
+                            onClick={() => startPeerConversation(peer)}
+                            className="p-3 bg-slate-50 hover:bg-brand-teal hover:text-white rounded-xl text-slate-400 transition-all"
+                          >
+                            <MessageSquare size={18} />
                           </button>
                         </td>
                       </tr>
@@ -544,284 +557,192 @@ const Dashboard = () => {
             </div>
           </div>
         );
-      case 'Revenue':
+      case 'Reputation':
         return (
           <div className="space-y-8 animate-in zoom-in-95 duration-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900">Financial Reports</h2>
-                <p className="text-gray-400">Fiscal year 2024 performance tracking</p>
-              </div>
-              <div className="flex gap-2">
-                <button className="px-6 py-3 bg-white border border-gray-100 text-slate-600 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
-                  <Calendar size={18} /> Oct 2024
-                </button>
-              </div>
-            </div>
-
+            <h2 className="text-3xl font-bold text-brand-dark">Reputation & Achievements</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
-                <div className="relative z-10">
-                  <p className="text-indigo-400 text-xs font-bold uppercase tracking-widest mb-2">Available Balance</p>
-                  <h3 className="text-4xl font-black mb-8">${parseFloat(withdrawalAmount).toLocaleString()}</h3>
-                  <button onClick={() => setShowWithdrawModal(true)} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg">
-                    <DollarSign size={18} /> Withdraw Funds
-                  </button>
+              <div className="bg-brand-dark p-10 rounded-[3rem] text-white shadow-2xl space-y-8 relative overflow-hidden">
+                <div className="relative z-10 space-y-2">
+                  <p className="text-brand-teal text-[10px] font-bold uppercase tracking-widest">Total Earned</p>
+                  <h3 className="text-5xl font-black">1,250</h3>
+                  <p className="text-gray-400 text-sm">Community Points</p>
                 </div>
-                <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl"></div>
+                <button className="w-full py-4 bg-brand-teal text-white font-bold rounded-2xl shadow-lg relative z-10">Claim Weekly Reward</button>
+                <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-brand-teal/10 rounded-full blur-3xl"></div>
               </div>
-              
-              <div className="md:col-span-2 bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Payout Schedule</h4>
-                  <div className="flex items-center gap-6">
-                    <div className="text-center p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
-                      <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Next Payout</p>
-                      <p className="text-xl font-black text-slate-900">Oct 28</p>
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-900 text-lg">Expected: $12,450.00</p>
-                      <p className="text-xs text-gray-400">Processing via Bank Transfer</p>
-                    </div>
+              <div className="md:col-span-2 bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm flex flex-col justify-center">
+                <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">Current Rank Progression</h4>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-end">
+                    <p className="font-bold text-brand-dark">Gold Contributor</p>
+                    <p className="text-xs font-bold text-brand-teal">85% to Platinum</p>
                   </div>
-                </div>
-                <div className="hidden lg:block w-32 h-32">
-                  <Activity size={128} className="text-indigo-50 opacity-50" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
-              <h3 className="text-xl font-bold text-slate-900 mb-8">Revenue Breakdown</h3>
-              <div className="space-y-6">
-                {[
-                  { label: 'Electronics', amount: '$84,200', percent: 65, color: 'bg-indigo-600' },
-                  { label: 'Fashion', amount: '$31,000', percent: 25, color: 'bg-emerald-500' },
-                  { label: 'Home Decor', amount: '$9,392', percent: 10, color: 'bg-amber-500' }
-                ].map((item, i) => (
-                  <div key={i} className="space-y-2">
-                    <div className="flex justify-between items-end">
-                      <p className="font-bold text-slate-900">{item.label}</p>
-                      <p className="text-xs font-bold text-gray-400">{item.amount} ({item.percent}%)</p>
-                    </div>
-                    <div className="h-3 bg-slate-50 rounded-full overflow-hidden">
-                      <div className={`h-full ${item.color} rounded-full transition-all duration-1000`} style={{ width: `${item.percent}%` }}></div>
-                    </div>
+                  <div className="h-4 bg-slate-50 rounded-full overflow-hidden">
+                    <div className="h-full bg-brand-teal rounded-full" style={{ width: '85%' }}></div>
                   </div>
-                ))}
+                  <p className="text-xs text-gray-400">Earn 250 more points to reach Platinum Rank</p>
+                </div>
               </div>
             </div>
           </div>
         );
       case 'Analytics':
         return (
-          <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-700">
+          <div className="space-y-10 animate-in slide-in-from-bottom-8 duration-700">
+            {/* Intelligence Header */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Live Visitors</p>
-                <div className="flex items-end gap-2">
-                  <p className="text-3xl font-black text-slate-900">{liveTraffic}</p>
-                  <span className="text-emerald-500 text-xs font-bold mb-1 flex items-center gap-1">
-                    <TrendingUp size={12} /> +12%
-                  </span>
+              <div className="bg-brand-dark p-8 rounded-[2.5rem] text-white shadow-2xl space-y-4 col-span-1 lg:col-span-2 relative overflow-hidden group">
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-brand-teal rounded-lg">
+                      <Brain size={20} className="text-white" />
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-teal">AI Learning Insights</span>
+                  </div>
+                  <h3 className="text-3xl font-bold leading-tight">Your learning pace is 15% faster than last month.</h3>
+                  <p className="text-gray-400 text-sm mt-4">Keep focusing on <span className="text-white font-bold">Web Development</span> to reach Mentor status by November.</p>
                 </div>
-                <div className="flex gap-1 mt-4">
-                  {[4,7,3,9,5,8,4,6].map((h, i) => (
-                    <div key={i} className="flex-1 bg-indigo-50 rounded-sm" style={{ height: `${h * 4}px` }}></div>
-                  ))}
+                <div className="absolute -bottom-10 -right-10 w-64 h-64 bg-brand-teal/10 rounded-full blur-3xl group-hover:bg-brand-teal/20 transition-all duration-700"></div>
+              </div>
+
+              <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col justify-between">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Average Focus</p>
+                <div className="space-y-2">
+                  <h4 className="text-4xl font-black text-brand-dark">4.2h</h4>
+                  <p className="text-xs font-bold text-emerald-500 flex items-center gap-1">
+                    <TrendingUp size={14} /> +30m vs last week
+                  </p>
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Conv. Rate</p>
-                <p className="text-3xl font-black text-slate-900">3.42%</p>
-                <p className="text-xs text-slate-400 mt-1">Average: 2.10%</p>
-              </div>
-              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Bounce Rate</p>
-                <p className="text-3xl font-black text-slate-900">42.1%</p>
-                <p className="text-xs text-rose-500 mt-1">-5.2% improvement</p>
-              </div>
-              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Avg. Session</p>
-                <p className="text-3xl font-black text-slate-900">4m 12s</p>
-                <p className="text-xs text-slate-400 mt-1">+30s vs last week</p>
+
+              <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col justify-between">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Helpfulness</p>
+                <div className="space-y-2">
+                  <h4 className="text-4xl font-black text-brand-dark">92%</h4>
+                  <p className="text-xs font-bold text-brand-teal uppercase tracking-widest">Elite Helper</p>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                <h3 className="text-xl font-bold text-slate-900 mb-8">Traffic Sources</h3>
-                <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Mastery Grid */}
+              <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm space-y-10">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-brand-dark">Subject Mastery</h3>
+                  <Target size={20} className="text-gray-300" />
+                </div>
+                <div className="space-y-8">
                   {[
-                    { source: 'Direct', value: '45%', icon: Target, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                    { source: 'Social Media', value: '30%', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-                    { source: 'Organic Search', value: '20%', icon: Search, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                    { source: 'Referral', value: '5%', icon: Layers, color: 'text-amber-600', bg: 'bg-amber-50' },
-                  ].map((s, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/50 hover:bg-white hover:shadow-md transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className={`p-3 rounded-xl ${s.bg} ${s.color}`}>
-                          <s.icon size={18} />
-                        </div>
-                        <p className="font-bold text-slate-900">{s.source}</p>
+                    { label: 'Web Dev', val: 85, color: 'bg-brand-teal' },
+                    { label: 'UI/UX', val: 62, color: 'bg-brand-orange' },
+                    { label: 'Marketing', val: 45, color: 'bg-indigo-500' },
+                    { label: 'Python', val: 30, color: 'bg-brand-dark' }
+                  ].map((s) => (
+                    <div key={s.label} className="space-y-3">
+                      <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest">
+                        <span className="text-gray-400">{s.label}</span>
+                        <span className="text-brand-dark">{s.val}%</span>
                       </div>
-                      <p className="font-black text-slate-900">{s.value}</p>
+                      <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
+                        <div className={`h-full ${s.color} rounded-full`} style={{ width: `${s.val}%` }}></div>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
-              
-              <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                <h3 className="text-xl font-bold text-slate-900 mb-8">Device Breakdown</h3>
-                <div className="h-64 flex items-center justify-center relative">
-                  <div className="w-48 h-48 rounded-full border-[1.5rem] border-indigo-600 flex items-center justify-center relative">
-                    <div className="absolute inset-0 border-[1.5rem] border-emerald-500 rounded-full" style={{ clipPath: 'polygon(50% 50%, 100% 0, 100% 100%)' }}></div>
-                    <div className="text-center">
-                      <p className="text-2xl font-black text-slate-900">72%</p>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase">Mobile</p>
-                    </div>
+
+              {/* Productivity Heatmap Concept */}
+              <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm space-y-10">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-brand-dark">Learning Intensity</h3>
+                  <div className="flex gap-2">
+                    <span className="w-3 h-3 bg-slate-50 rounded-sm"></span>
+                    <span className="w-3 h-3 bg-brand-teal/30 rounded-sm"></span>
+                    <span className="w-3 h-3 bg-brand-teal/60 rounded-sm"></span>
+                    <span className="w-3 h-3 bg-brand-teal rounded-sm"></span>
                   </div>
                 </div>
-                <div className="flex justify-center gap-8 mt-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-indigo-600 rounded-full"></div>
-                    <span className="text-xs font-bold text-slate-600">Mobile</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
-                    <span className="text-xs font-bold text-slate-600">Desktop</span>
-                  </div>
+                <div className="grid grid-cols-7 gap-3">
+                  {Array.from({ length: 28 }).map((_, i) => (
+                    <div 
+                      key={i} 
+                      className={`aspect-square rounded-xl transition-all hover:scale-110 cursor-pointer ${
+                        Math.random() > 0.7 ? 'bg-brand-teal' : 
+                        Math.random() > 0.4 ? 'bg-brand-teal/40' : 
+                        Math.random() > 0.2 ? 'bg-brand-teal/10' : 'bg-slate-50'
+                      }`}
+                    ></div>
+                  ))}
+                </div>
+                <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] pt-4">
+                  <span>Past 4 Weeks</span>
+                  <span>Today</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Impact Metrics */}
+            <div className="bg-brand-teal p-12 rounded-[3.5rem] text-white flex flex-col md:flex-row items-center justify-between gap-12 relative overflow-hidden shadow-2xl shadow-brand-teal/20">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+              <div className="space-y-4 relative z-10 text-center md:text-left">
+                <h3 className="text-4xl font-bold leading-tight">Your knowledge has helped<br />24 other students this week.</h3>
+                <p className="text-white/70 font-medium">You are in the top 2% of contributors in the Web Development category.</p>
+              </div>
+              <div className="flex -space-x-4 relative z-10">
+                {[1,2,3,4,5].map(i => (
+                  <img key={i} src={`https://i.pravatar.cc/150?u=${i+20}`} className="w-16 h-16 rounded-full border-4 border-brand-teal shadow-xl" />
+                ))}
+                <div className="w-16 h-16 rounded-full bg-white text-brand-teal flex items-center justify-center font-bold text-sm border-4 border-brand-teal shadow-xl">
+                  +19
                 </div>
               </div>
             </div>
           </div>
         );
-      case 'Payments':
+      case 'Mentors':
         return (
-          <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900">Transaction History</h2>
-                <p className="text-gray-400">All incoming and outgoing payments</p>
-              </div>
-              <div className="flex gap-4">
-                <button className="px-6 py-4 bg-white border border-gray-100 text-slate-600 font-bold rounded-2xl shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
-                  <Download size={18} /> Statements
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-slate-50/50">
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Transaction ID</th>
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Method</th>
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Date</th>
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Type</th>
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Amount</th>
-                      <th className="px-8 py-6 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {transactions.map((txn) => (
-                      <tr key={txn.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-6 font-bold text-slate-900">{txn.id}</td>
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-2">
-                            <CreditCard size={16} className="text-slate-400" />
-                            <span className="font-medium text-slate-600">{txn.method}</span>
-                          </div>
-                        </td>
-                        <td className="px-8 py-6 text-slate-500 font-medium">{txn.date}</td>
-                        <td className="px-8 py-6">
-                          <span className={`font-bold ${txn.type === 'Income' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {txn.type}
-                          </span>
-                        </td>
-                        <td className="px-8 py-6 font-black text-slate-900">${txn.amount.toFixed(2)}</td>
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${txn.status === 'Completed' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></div>
-                            <span className="text-xs font-bold text-slate-600">{txn.status}</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          <div className="space-y-8 animate-in fade-in duration-700">
+            <h2 className="text-3xl font-bold text-brand-dark">Active Mentors</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {mentors.map((mentor, i) => (
+                <div key={i} className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm text-center group">
+                  <div className="w-24 h-24 mx-auto rounded-[2rem] overflow-hidden mb-6 ring-8 ring-slate-50 transition-all">
+                    <img src={mentor.avatar} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <h3 className="text-xl font-bold text-brand-dark mb-1">{mentor.name}</h3>
+                  <p className="text-brand-teal font-bold text-xs uppercase tracking-widest mb-6">{mentor.role}</p>
+                  <div className="flex items-center justify-center gap-2 mb-8">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                    <span className="text-xs font-bold text-slate-500">{mentor.status}</span>
+                  </div>
+                  <button 
+                    onClick={() => { setSelectedMentor(mentor); setShowMentorshipModal(true); }}
+                    className="w-full py-4 bg-slate-50 text-brand-dark font-bold rounded-2xl hover:bg-brand-dark hover:text-white transition-all"
+                  >
+                    Request Mentorship
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         );
       case 'Settings':
         return (
-          <div className="space-y-12 animate-in slide-in-from-right-8 duration-700">
-            <div className="flex flex-col md:flex-row gap-12">
-              <aside className="w-full md:w-64 space-y-2">
-                {['Profile', 'Store Settings', 'Security', 'Notifications'].map(item => (
-                  <button key={item} className={`w-full text-left px-6 py-4 rounded-2xl font-bold transition-all ${item === 'Profile' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-white hover:text-slate-900'}`}>
-                    {item}
-                  </button>
-                ))}
-              </aside>
-
-              <div className="flex-1 space-y-10">
-                <section className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-8">
-                  <div className="flex items-center gap-8">
-                    <div className="relative group">
-                      <div className="w-24 h-24 rounded-[2.5rem] overflow-hidden ring-4 ring-indigo-50">
-                        <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=1000&auto=format&fit=crop" alt="" className="w-full h-full object-cover" />
-                      </div>
-                      <button className="absolute -bottom-2 -right-2 p-3 bg-slate-900 text-white rounded-2xl shadow-xl hover:bg-indigo-600 transition-all">
-                        <Edit size={16} />
-                      </button>
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-black text-slate-900">Administrator</h3>
-                      <p className="text-gray-400 font-medium">Manage your personal information and preferences</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Full Name</label>
-                      <input type="text" defaultValue="Admin User" className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-medium" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
-                      <input type="email" defaultValue="admin@luxe.com" className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-medium" />
-                    </div>
-                  </div>
-                  
-                  <div className="pt-6 border-t border-slate-50 flex justify-end gap-4">
-                    <button className="px-8 py-4 bg-slate-50 text-slate-600 font-bold rounded-2xl hover:bg-slate-100 transition-all">Cancel Changes</button>
-                    <button className="px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg hover:bg-indigo-700 transition-all shadow-indigo-200">Save Profile</button>
-                  </div>
-                </section>
-
-                <section className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                  <h4 className="text-lg font-bold text-slate-900 mb-8">System Preferences</h4>
-                  <div className="space-y-6">
-                    {[
-                      { label: 'Two-Factor Authentication', desc: 'Add an extra layer of security to your account', enabled: true },
-                      { label: 'Order Notifications', desc: 'Get notified via email for every new order', enabled: true },
-                      { label: 'Inventory Alerts', desc: 'Notify me when products are low on stock', enabled: false }
-                    ].map((s, i) => (
-                      <div key={i} className="flex items-center justify-between py-4 border-b border-slate-50 last:border-0">
-                        <div>
-                          <p className="font-bold text-slate-900">{s.label}</p>
-                          <p className="text-sm text-gray-400">{s.desc}</p>
-                        </div>
-                        <button className={`w-14 h-8 rounded-full transition-all relative ${s.enabled ? 'bg-indigo-600' : 'bg-slate-200'}`}>
-                          <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${s.enabled ? 'left-7' : 'left-1 shadow-sm'}`}></div>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </section>
+          <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm space-y-10">
+            <h2 className="text-3xl font-bold text-brand-dark">Account Settings</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="space-y-4">
+                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.4em] px-1">Display Name</label>
+                <input type="text" defaultValue="John Student" className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 outline-none font-bold text-brand-dark" />
               </div>
+              <div className="space-y-4">
+                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.4em] px-1">Email Address</label>
+                <input type="email" defaultValue="john@university.edu" className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 outline-none font-bold text-brand-dark" />
+              </div>
+            </div>
+            <div className="pt-6 border-t border-slate-50">
+              <button className="px-10 py-4 bg-brand-dark text-white font-bold rounded-2xl shadow-xl hover:bg-brand-teal transition-all">Save Profile Changes</button>
             </div>
           </div>
         );
@@ -834,38 +755,44 @@ const Dashboard = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
       
-      <div className="flex-1 flex flex-col lg:flex-row min-h-screen">
+      <div className="flex-1 flex flex-col lg:flex-row min-h-screen pt-24 lg:pt-32">
         {/* Sidebar */}
         <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-gray-100 transform transition-transform duration-500 ease-in-out lg:relative lg:translate-x-0 ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}>
-          <div className="h-full flex flex-col pt-32 pb-10 px-6">
+          <div className="h-full flex flex-col pt-10 pb-10 px-6">
             <div className="flex flex-col gap-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-4 opacity-50">Master Dashboard</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-4 opacity-50">Student Workspace</p>
               {sidebarLinks.map((link) => (
                 <button
                   key={link.name}
                   onClick={() => setActiveTab(link.name)}
                   className={`flex items-center gap-4 px-6 py-4 rounded-2xl font-black transition-all group ${
                     activeTab === link.name 
-                      ? 'bg-slate-900 text-white shadow-2xl shadow-slate-200 translate-x-2' 
-                      : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'
+                      ? 'bg-brand-dark text-white shadow-2xl translate-x-2' 
+                      : 'text-slate-400 hover:bg-slate-50 hover:text-brand-teal'
                   }`}
                 >
-                  <link.icon size={20} className={`${activeTab === link.name ? 'text-indigo-400' : 'group-hover:text-indigo-600'}`} />
+                  <link.icon size={20} className={`${activeTab === link.name ? 'text-brand-teal' : 'group-hover:text-brand-teal'}`} />
                   <span className="text-sm tracking-tight">{link.name}</span>
                 </button>
               ))}
             </div>
 
             <div className="mt-auto pt-8 border-t border-gray-100">
-              <div className="p-4 bg-slate-900 rounded-3xl flex items-center gap-3 group cursor-pointer hover:shadow-2xl hover:shadow-indigo-200 transition-all">
-                <div className="w-10 h-10 bg-indigo-500 rounded-xl overflow-hidden flex items-center justify-center font-bold text-white shadow-lg">
-                  A
+              <div 
+                onClick={() => {
+                  toast.success('Logged out successfully');
+                  navigate('/');
+                }}
+                className="p-4 bg-brand-dark rounded-3xl flex items-center gap-3 group cursor-pointer hover:shadow-2xl transition-all"
+              >
+                <div className="w-10 h-10 bg-brand-teal rounded-xl flex items-center justify-center font-bold text-white">
+                  S
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-white truncate">Administrator</p>
-                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Premium Plan</p>
+                  <p className="text-xs font-bold text-white truncate">John Student</p>
+                  <p className="text-[10px] font-bold text-brand-teal uppercase tracking-widest">Premium Learner</p>
                 </div>
                 <LogOut size={16} className="ml-auto text-slate-500 group-hover:text-rose-500 transition-colors" />
               </div>
@@ -874,40 +801,72 @@ const Dashboard = () => {
         </aside>
 
         {/* Workspace */}
-        <main className="flex-1 flex flex-col pt-24 lg:pt-32 px-6 lg:px-12 pb-20 overflow-hidden">
+        <main className="flex-1 flex flex-col px-6 lg:px-12 pb-20 overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
             <div className="flex items-center gap-4">
               <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="lg:hidden p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
                 <Menu size={20} />
               </button>
               <div>
-                <h1 className="text-4xl font-black text-slate-900 tracking-tight">{activeTab}</h1>
+                <h1 className="text-4xl font-black text-brand-dark tracking-tight">{activeTab}</h1>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-widest rounded-md border border-emerald-100">
-                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Live System
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Active Study Session
                   </span>
-                  <p className="text-gray-400 text-xs font-medium">• Last sync: Just now</p>
+                  <p className="text-gray-400 text-xs font-medium">• 124 students online</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="hidden xl:flex flex-col items-end pr-6 border-r border-gray-200">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Session Data</p>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-slate-900">124 active users</p>
-                  </div>
-                  <div className="flex -space-x-2">
-                    {[1,2,3].map(i => <img key={i} src={`https://i.pravatar.cc/100?u=${i}`} className="w-6 h-6 rounded-full border-2 border-white" />)}
-                  </div>
-                </div>
-              </div>
-              <button className="relative p-3 bg-white rounded-2xl border border-gray-100 shadow-sm hover:bg-slate-50 transition-all text-slate-600 group">
+            <div className="flex items-center gap-4 relative">
+              <button 
+                onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+                className="relative p-3 bg-white rounded-2xl border border-gray-100 shadow-sm hover:bg-slate-50 transition-all text-brand-dark group"
+              >
                 <Bell size={22} className="group-hover:rotate-12 transition-transform" />
-                <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-indigo-600 border-2 border-white rounded-full"></span>
+                <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-brand-teal border-2 border-white rounded-full"></span>
               </button>
-              <button className="p-3 bg-slate-900 rounded-2xl shadow-lg hover:bg-indigo-600 transition-all text-white active:scale-95">
+
+              {/* Notification Dropdown */}
+              {showNotifDropdown && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowNotifDropdown(false)}></div>
+                  <div className="absolute top-full right-0 mt-4 w-80 bg-white rounded-[2rem] border border-gray-100 shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                    <div className="p-6 border-b border-gray-50 flex items-center justify-between">
+                      <h3 className="font-bold text-brand-dark">Notifications</h3>
+                      <span className="px-2 py-0.5 bg-brand-teal/10 text-brand-teal text-[10px] font-bold rounded-md uppercase">3 New</span>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.map((notif) => (
+                        <div key={notif.id} className="p-6 border-b border-gray-50 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer group">
+                          <div className="flex gap-4">
+                            <div className={`p-2 rounded-xl h-fit ${
+                              notif.type === 'message' ? 'bg-blue-50 text-blue-600' :
+                              notif.type === 'achievement' ? 'bg-amber-50 text-amber-600' :
+                              'bg-emerald-50 text-emerald-600'
+                            }`}>
+                              {notif.type === 'message' ? <MessageSquare size={16} /> : 
+                               notif.type === 'achievement' ? <Trophy size={16} /> : 
+                               <Activity size={16} />}
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <p className={`text-xs font-bold leading-tight ${notif.read ? 'text-slate-400' : 'text-brand-dark group-hover:text-brand-teal'}`}>
+                                {notif.title}
+                              </p>
+                              <p className="text-[10px] text-gray-400 font-medium">{notif.time}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button className="w-full py-4 bg-slate-50 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:text-brand-teal transition-colors">
+                      View All Alerts
+                    </button>
+                  </div>
+                </>
+              )}
+
+              <button onClick={() => setActiveTab('Settings')} className="p-3 bg-brand-dark rounded-2xl shadow-lg hover:bg-brand-teal transition-all text-white active:scale-95">
                 <Settings size={22} />
               </button>
             </div>
@@ -921,62 +880,57 @@ const Dashboard = () => {
 
       <Footer />
 
-      {/* Product Modal (Add/Edit) */}
-      {showProductModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      {/* New Request Modal */}
+      {showRequestModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-brand-dark/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="p-10">
               <div className="flex items-center justify-between mb-8">
-                <h3 className="text-3xl font-bold text-slate-900">{editingProduct ? 'Edit Product' : 'New Product'}</h3>
-                <button onClick={() => { setShowProductModal(false); setEditingProduct(null); }} className="p-2 hover:bg-slate-100 rounded-xl text-gray-400 transition-all">
+                <h3 className="text-3xl font-bold text-brand-dark">{editingRequest ? 'Edit Request' : 'New Help Request'}</h3>
+                <button onClick={() => setShowRequestModal(false)} className="p-2 hover:bg-slate-100 rounded-xl text-gray-400 transition-all">
                   <X size={24} />
                 </button>
               </div>
 
-              <form onSubmit={handleProductSubmit} className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Name</label>
-                    <input 
-                      type="text" required
-                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                      value={editingProduct ? editingProduct.name : newProduct.name}
-                      onChange={(e) => editingProduct ? setEditingProduct({...editingProduct, name: e.target.value}) : setNewProduct({...newProduct, name: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Price ($)</label>
-                    <input 
-                      type="number" step="0.01" required
-                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                      value={editingProduct ? editingProduct.price : newProduct.price}
-                      onChange={(e) => editingProduct ? setEditingProduct({...editingProduct, price: e.target.value}) : setNewProduct({...newProduct, price: e.target.value})}
-                    />
-                  </div>
+              <form onSubmit={handleRequestSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Request Title</label>
+                  <input 
+                    type="text" required
+                    className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-brand-teal/5 outline-none transition-all font-bold"
+                    value={editingRequest ? editingRequest.title : newRequest.title}
+                    onChange={(e) => editingRequest ? setEditingRequest({...editingRequest, title: e.target.value}) : setNewRequest({...newRequest, title: e.target.value})}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Category</label>
-                    <select 
-                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                      value={editingProduct ? editingProduct.category : newProduct.category}
-                      onChange={(e) => editingProduct ? setEditingProduct({...editingProduct, category: e.target.value}) : setNewProduct({...newProduct, category: e.target.value})}
+                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Category</label>
+                    <select
+                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-brand-teal/5 outline-none transition-all font-bold"
+                      value={editingRequest ? editingRequest.category : newRequest.category}
+                      onChange={(e) => editingRequest ? setEditingRequest({...editingRequest, category: e.target.value}) : setNewRequest({...newRequest, category: e.target.value})}
                     >
-                      <option>Electronics</option><option>Fashion</option><option>Home</option><option>Accessories</option>
+                      <option>Web Development</option>
+                      <option>UI/UX Design</option>
+                      <option>Digital Marketing</option>
+                      <option>Career Guidance</option>
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Stock Level</label>
-                    <input 
-                      type="number" required
-                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                      value={editingProduct ? (editingProduct.stock || 50) : newProduct.stock}
-                      onChange={(e) => editingProduct ? setEditingProduct({...editingProduct, stock: parseInt(e.target.value)}) : setNewProduct({...newProduct, stock: parseInt(e.target.value)})}
-                    />
+                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Urgency</label>
+                    <select
+                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-brand-teal/5 outline-none transition-all font-bold"
+                      value={editingRequest ? editingRequest.urgency : newRequest.urgency}
+                      onChange={(e) => editingRequest ? setEditingRequest({...editingRequest, urgency: e.target.value}) : setNewRequest({...newRequest, urgency: e.target.value})}
+                    >
+                      <option>Low</option>
+                      <option>Medium</option>
+                      <option>High</option>
+                    </select>
                   </div>
                 </div>
-                <button type="submit" className="w-full py-5 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl hover:bg-indigo-700 transition-all active:scale-95">
-                  {editingProduct ? 'Save Changes' : 'Publish Product'}
+                <button type="submit" className="w-full py-5 bg-brand-teal text-white font-bold rounded-2xl shadow-xl hover:bg-brand-teal/90 transition-all active:scale-95">
+                  {editingRequest ? 'Update Request' : 'Post Help Request'}
                 </button>
               </form>
             </div>
@@ -984,107 +938,116 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Order Detail Modal */}
-      {showOrderModal && selectedOrder && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      {/* Interaction/Message Modal */}
+      {showInteractionModal && selectedInteraction && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-brand-dark/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-4xl h-[80vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            {/* Modal Header */}
+            <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-brand-teal/10 text-brand-teal rounded-2xl flex items-center justify-center font-bold text-xl">
+                  {selectedInteraction.peer[0]}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-brand-dark">{selectedInteraction.peer}</h3>
+                  <p className="text-xs text-gray-400 font-medium">Discussing: {selectedInteraction.topic}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowInteractionModal(false)} className="p-3 hover:bg-slate-100 rounded-2xl text-gray-400 transition-all">
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Message Area */}
+            <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/50">
+              <div className="flex justify-center">
+                <span className="px-4 py-1.5 bg-white rounded-full text-[10px] font-bold text-gray-400 uppercase tracking-widest border border-gray-100 shadow-sm">
+                  Conversation started on {selectedInteraction.date}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {chatMessages.map((msg) => (
+                  <div key={msg.id} className={`flex items-start gap-3 max-w-[80%] ${msg.isMe ? 'self-end flex-row-reverse' : ''}`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold ${
+                      msg.isMe ? 'bg-brand-dark text-white' : 'bg-brand-teal/10 text-brand-teal'
+                    }`}>
+                      {msg.sender[0]}
+                    </div>
+                    <div className={`p-4 rounded-2xl shadow-sm border border-gray-100 ${
+                      msg.isMe ? 'bg-brand-teal text-white rounded-tr-none' : 'bg-white text-brand-dark rounded-tl-none'
+                    }`}>
+                      <p className="text-sm leading-relaxed">{msg.text}</p>
+                      <p className={`text-[9px] font-bold mt-2 ${msg.isMe ? 'text-white/50 text-right' : 'text-gray-300'}`}>
+                        {msg.time}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Input Area */}
+            <form onSubmit={handleSendMessage} className="p-8 bg-white border-t border-gray-100">
+              <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-[2rem] border border-gray-100 focus-within:border-brand-teal/50 focus-within:ring-4 focus-within:ring-brand-teal/5 transition-all">
+                <input 
+                  type="text" 
+                  value={msgInput}
+                  onChange={(e) => setMsgInput(e.target.value)}
+                  placeholder="Type your message here..."
+                  className="flex-1 bg-transparent px-6 py-3 outline-none text-sm font-bold text-brand-dark"
+                />
+                <button type="submit" className="w-12 h-12 bg-brand-teal text-white rounded-2xl flex items-center justify-center hover:bg-brand-teal/80 transition-all shadow-lg shadow-brand-teal/20 active:scale-95">
+                  <Send size={20} />
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Mentorship Request Modal */}
+      {showMentorshipModal && selectedMentor && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-brand-dark/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-10">
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-bold text-slate-900">Order Details</h3>
-                <button onClick={() => setShowOrderModal(false)} className="p-2 hover:bg-slate-100 rounded-xl text-gray-400 transition-all">
-                  <X size={24} />
-                </button>
-              </div>
-
-              <div className="space-y-8">
-                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex justify-between items-center">
-                  <div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Order Status</p>
-                    <span className="px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-bold rounded-full uppercase tracking-widest shadow-lg">{selectedOrder.status}</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Transaction ID</p>
-                    <p className="font-bold text-slate-900">{selectedOrder.id}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-sm font-bold text-slate-900 uppercase tracking-widest">Customer Info</h4>
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-gray-100 text-indigo-600 font-bold">
-                      {selectedOrder.customer[0]}
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-900">{selectedOrder.customer}</p>
-                      <p className="text-sm text-gray-500">{selectedOrder.email}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-gray-100 flex gap-4">
-                  <button className="flex-1 py-4 bg-slate-900 text-white font-bold rounded-2xl hover:bg-indigo-600 transition-all">Print Invoice</button>
-                  <button className="px-8 py-4 bg-slate-50 text-slate-600 font-bold rounded-2xl hover:bg-slate-100 transition-all">Refund</button>
+            <div className="p-10 text-center space-y-8">
+              <div className="relative w-32 h-32 mx-auto">
+                <img src={selectedMentor.avatar} className="w-full h-full rounded-[2.5rem] object-cover shadow-xl" />
+                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-brand-teal rounded-xl flex items-center justify-center text-white border-4 border-white shadow-lg">
+                  <CheckCircle2 size={16} />
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Withdraw Modal */}
-      {showWithdrawModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-10">
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-bold text-slate-900">Withdraw Funds</h3>
-                <button onClick={() => setShowWithdrawModal(false)} className="p-2 hover:bg-slate-100 rounded-xl text-gray-400 transition-all">
-                  <X size={24} />
-                </button>
+              
+              <div className="space-y-2">
+                <h3 className="text-3xl font-bold text-brand-dark">Request Mentorship</h3>
+                <p className="text-gray-400 font-medium">with <span className="text-brand-teal font-bold">{selectedMentor.name}</span></p>
               </div>
 
-              <form onSubmit={handleWithdraw} className="space-y-6">
-                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 mb-8">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 text-center">Current Balance</p>
-                  <p className="text-3xl font-black text-slate-900 text-center">${parseFloat(withdrawalAmount).toLocaleString()}</p>
-                </div>
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 text-left">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Professional Bio</p>
+                <p className="text-sm text-brand-dark leading-relaxed font-medium">
+                  Expert in {selectedMentor.role}. Focuses on helping students bridge the gap between theory and real-world application.
+                </p>
+              </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Amount to Withdraw</label>
-                  <div className="relative">
-                    <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-slate-400">$</span>
-                    <input 
-                      type="number" required max={withdrawalAmount}
-                      className="w-full pl-10 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-bold"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Payout Method</label>
-                  <select className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-bold">
-                    <option>Bank Transfer (**** 8812)</option>
-                    <option>PayPal (admin@luxe.com)</option>
-                  </select>
-                </div>
-
+              <div className="flex gap-4 pt-4">
                 <button 
-                  type="submit" 
-                  disabled={isWithdrawing}
-                  className={`w-full py-5 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl hover:bg-indigo-700 transition-all active:scale-95 flex items-center justify-center gap-3 ${isWithdrawing ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  onClick={() => setShowMentorshipModal(false)}
+                  className="flex-1 py-5 bg-slate-50 text-gray-500 font-bold rounded-2xl hover:bg-slate-100 transition-all"
                 >
-                  {isWithdrawing ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Processing...
-                    </>
-                  ) : (
-                    'Confirm Withdrawal'
-                  )}
+                  Cancel
                 </button>
-                <p className="text-[10px] text-gray-400 text-center font-medium px-4">Withdrawals are typically processed within 48-72 hours. Standard transaction fees may apply.</p>
-              </form>
+                <button 
+                  onClick={() => {
+                    toast.success(`Mentorship request sent to ${selectedMentor.name}!`);
+                    setShowMentorshipModal(false);
+                  }}
+                  className="flex-1 py-5 bg-brand-teal text-white font-bold rounded-2xl shadow-xl shadow-brand-teal/20 hover:bg-brand-teal/90 transition-all active:scale-95"
+                >
+                  Confirm Request
+                </button>
+              </div>
+              <p className="text-[10px] text-gray-400 font-medium">Mentors typically respond within 24-48 hours.</p>
             </div>
           </div>
         </div>

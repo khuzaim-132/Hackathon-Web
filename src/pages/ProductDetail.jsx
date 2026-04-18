@@ -1,15 +1,15 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ShoppingCart, ArrowLeft, Star, Shield, Truck, RotateCcw } from 'lucide-react';
-import { useAppDispatch } from '../store/hooks';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { addItem } from '../store/slices/cartSlice';
-import { PRODUCTS } from '../data/products';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const dispatch = useAppDispatch();
+  const PRODUCTS = useAppSelector(state => state.products.items);
   const product = PRODUCTS.find((p) => p.id === parseInt(id));
 
   if (!product) {

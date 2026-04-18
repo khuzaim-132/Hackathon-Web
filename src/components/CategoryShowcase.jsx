@@ -11,7 +11,7 @@ const categories = [
   },
   {
     name: "Fashion",
-    image: "https://images.unsplash.com/photo-1445205170230-053b83e26371?q=80&w=1000&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1000&auto=format&fit=crop",
     count: "85+ Products",
     size: "md:col-span-1",
   },

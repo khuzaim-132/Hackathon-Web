@@ -1,99 +1,120 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Package, Globe, Share2, Mail, Info } from 'lucide-react';
+import { Globe, Share2, Mail, ArrowRight, Heart } from 'lucide-react';
+
+const footerLinks = [
+  {
+    title: 'Platform',
+    links: [
+      { name: 'Explore Feed', href: '/explore' },
+      { name: 'Leaderboard', href: '/leaderboard' },
+      { name: 'AI Center', href: '/ai-center' },
+      { name: 'Create Request', href: '/create-request' },
+    ],
+  },
+  {
+    title: 'Community',
+    links: [
+      { name: 'About HelpHub', href: '/about' },
+      { name: 'Mentors', href: '/explore?role=mentor' },
+      { name: 'Success Stories', href: '/' },
+      { name: 'Community Guidelines', href: '/' },
+    ],
+  },
+  {
+    title: 'Support',
+    links: [
+      { name: 'Help Center', href: '/' },
+      { name: 'Contact Us', href: '/contact' },
+      { name: 'Bug Report', href: '/' },
+      { name: 'Status', href: '/' },
+    ],
+  },
+];
 
 const Footer = () => {
   return (
-    <footer className="bg-white border-t border-gray-100 pt-20 pb-10">
-      <div className="container mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
-          {/* Brand Info */}
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 cursor-pointer">
-              <div className="bg-indigo-600 p-2 rounded-xl">
-                <Package className="text-white" size={24} />
+    <footer className="bg-brand-dark text-white pt-24 pb-12 mt-20 relative overflow-hidden">
+      {/* Background Decorative Elements */}
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-brand-teal to-transparent opacity-20" />
+      <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-brand-teal/5 rounded-full blur-3xl" />
+      
+      <div className="container mx-auto px-6 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-8 mb-20">
+          
+          {/* Brand & Newsletter */}
+          <div className="lg:col-span-5 space-y-10">
+            <Link to="/" className="flex items-center gap-4 group">
+              <div className="w-12 h-12 bg-brand-teal rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-lg shadow-brand-teal/20 transition-transform group-hover:scale-105">
+                H
               </div>
-              <span className="text-xl font-bold tracking-tight text-slate-900">LUXE.</span>
+              <span className="text-xl font-bold tracking-tight text-white">HelpHub AI</span>
+            </Link>
+            
+            <div className="space-y-6">
+              <h3 className="text-2xl font-bold leading-tight max-w-sm">
+                Join our newsletter for platform updates and tips.
+              </h3>
+              <div className="flex p-1.5 bg-white/5 rounded-2xl border border-white/10 max-w-md group focus-within:border-brand-teal/50 transition-all">
+                <input 
+                  type="email" 
+                  placeholder="Enter your email" 
+                  className="flex-1 bg-transparent px-6 py-3 outline-none text-sm font-medium"
+                />
+                <button className="p-3 bg-brand-teal text-white rounded-xl hover:bg-brand-teal/80 transition-all group-hover:shadow-lg">
+                  <ArrowRight size={20} />
+                </button>
+              </div>
             </div>
-            <p className="text-gray-500 leading-relaxed max-w-xs">
-              Redefining your shopping experience with premium curated products and exceptional service since 2024.
-            </p>
-            <div className="flex gap-4">
-              <Link to="/global" className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:border-indigo-600 transition-all cursor-pointer">
-                <Globe size={18} />
-              </Link>
-              <Link to="/community" className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:border-indigo-600 transition-all cursor-pointer">
-                <Share2 size={18} />
-              </Link>
-              <Link to="/contact" className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:border-indigo-600 transition-all cursor-pointer">
-                <Mail size={18} />
-              </Link>
-              <Link to="/about" className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:border-indigo-600 transition-all cursor-pointer">
-                <Info size={18} />
-              </Link>
+
+            <div className="flex gap-6">
+              {[Globe, Share2, Mail].map((Icon, i) => (
+                <a key={i} href="#" className="text-gray-500 hover:text-brand-teal transition-colors">
+                  <Icon size={22} />
+                </a>
+              ))}
             </div>
           </div>
 
-          {/* Company */}
-          <div>
-            <h4 className="font-bold text-slate-900 mb-6 uppercase text-xs tracking-widest">Company</h4>
-            <ul className="space-y-4 text-gray-500 text-sm">
-              <li>
-                <Link to="/about" className="hover:text-indigo-600 transition-colors">About Us</Link>
-              </li>
-              <li>
-                <Link to="/careers" className="hover:text-indigo-600 transition-colors">Careers</Link>
-              </li>
-              <li>
-                <Link to="/affiliates" className="hover:text-indigo-600 transition-colors">Affiliates</Link>
-              </li>
-              <li>
-                <Link to="/contact" className="hover:text-indigo-600 transition-colors">Contact</Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Support */}
-          <div>
-            <h4 className="font-bold text-slate-900 mb-6 uppercase text-xs tracking-widest">Support</h4>
-            <ul className="space-y-4 text-gray-500 text-sm">
-              <li>
-                <Link to="/help" className="hover:text-indigo-600 transition-colors">Help Center</Link>
-              </li>
-              <li>
-                <Link to="/shipping" className="hover:text-indigo-600 transition-colors">Returns & Refunds</Link>
-              </li>
-              <li>
-                <Link to="/shipping-info" className="hover:text-indigo-600 transition-colors">Shipping Info</Link>
-              </li>
-              <li>
-                <Link to="/dashboard" className="hover:text-indigo-600 transition-colors">Track Order</Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Legal */}
-          <div>
-            <h4 className="font-bold text-slate-900 mb-6 uppercase text-xs tracking-widest">Legal</h4>
-            <ul className="space-y-4 text-gray-500 text-sm">
-              <li>
-                <Link to="/privacy" className="hover:text-indigo-600 transition-colors">Privacy Policy</Link>
-              </li>
-              <li>
-                <Link to="/terms" className="hover:text-indigo-600 transition-colors">Terms of Service</Link>
-              </li>
-              <li>
-                <Link to="/cookies" className="hover:text-indigo-600 transition-colors">Cookie Settings</Link>
-              </li>
-            </ul>
+          {/* Links Grid */}
+          <div className="lg:col-span-7 grid grid-cols-2 md:grid-cols-3 gap-12">
+            {footerLinks.map((section) => (
+              <div key={section.title} className="space-y-8">
+                <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-[0.4em]">
+                  {section.title}
+                </h4>
+                <ul className="space-y-4">
+                  {section.links.map((link) => (
+                    <li key={link.name}>
+                      <Link 
+                        to={link.href} 
+                        className="text-sm font-medium text-gray-400 hover:text-white transition-colors flex items-center gap-2 group"
+                      >
+                        <div className="w-0 h-[1px] bg-brand-teal transition-all group-hover:w-4" />
+                        {link.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="border-t border-gray-100 pt-10 flex flex-col md:flex-row justify-between items-center gap-6">
-          <p className="text-gray-400 text-sm">© 2024 LUXE E-Commerce. Built with passion for better shopping.</p>
-          <div className="flex gap-8 text-sm text-gray-400">
-            <span className="hover:text-indigo-600 cursor-pointer">English (US)</span>
-            <span className="hover:text-indigo-600 cursor-pointer">USD ($)</span>
+        {/* Bottom Bar */}
+        <div className="pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="text-sm text-gray-500 font-medium">
+            © 2026 HelpHub AI. All rights reserved.
+          </div>
+          
+          <div className="flex items-center gap-8 text-xs font-bold text-gray-500 uppercase tracking-widest">
+            <Link to="/" className="hover:text-white transition-colors">Privacy Policy</Link>
+            <Link to="/" className="hover:text-white transition-colors">Terms of Service</Link>
+            <Link to="/" className="hover:text-white transition-colors">Cookies</Link>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-widest">
+            Made with <Heart size={14} className="text-brand-orange fill-brand-orange" /> for the community
           </div>
         </div>
       </div>

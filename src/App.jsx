@@ -2,52 +2,48 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import ScrollToTop from './components/ScrollToTop';
 import Home from './pages/Home';
-import ShopPage from './pages/ShopPage';
-import ProductDetail from './pages/ProductDetail';
-import CartPage from './pages/CartPage';
-import CategoriesPage from './pages/CategoriesPage';
+import AICenter from './pages/AICenter';
+import CreateRequestPage from './pages/CreateRequestPage';
+import ProfilePage from './pages/ProfilePage';
+import Dashboard from './pages/Dashboard';
+import JoinPage from './pages/JoinPage';
+import NotificationsPage from './pages/NotificationsPage';
+import MessagesPage from './pages/MessagesPage';
+import LeaderboardPage from './pages/LeaderboardPage';
+import ExplorePage from './pages/ExplorePage';
+import OnboardingPage from './pages/OnboardingPage';
+import RequestDetailPage from './pages/RequestDetailPage';
 import AboutPage from './pages/AboutPage';
 import ContactPage from './pages/ContactPage';
-import Dashboard from './pages/Dashboard';
-import CareersPage from './pages/CareersPage';
-import ShippingPage from './pages/ShippingPage';
-import LegalPage from './pages/LegalPage';
-import JobApplicationPage from './pages/JobApplicationPage';
-import HelpCenterPage from './pages/HelpCenterPage';
-import ShippingInfoPage from './pages/ShippingInfoPage';
-import AffiliatesPage from './pages/AffiliatesPage';
-import PrivacyPage from './pages/PrivacyPage';
-import TermsPage from './pages/TermsPage';
-import CookiesPage from './pages/CookiesPage';
-import GlobalPage from './pages/GlobalPage';
-import CommunityPage from './pages/CommunityPage';
+import StudentList from './components/StudentList';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <Toaster position="top-right" reverseOrder={false} />
       <div className="antialiased font-sans">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/shop" element={<ShopPage />} />
-          <Route path="/product/:id" element={<ProductDetail />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/explore" element={<ExplorePage />} />
+          <Route path="/feed" element={<ExplorePage />} />
+          <Route path="/leaderboard" element={<LeaderboardPage />} />
+          <Route path="/ai-center" element={<AICenter />} />
+          <Route path="/create-request" element={<CreateRequestPage />} />
+          <Route path="/post-request" element={<CreateRequestPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/join" element={<JoinPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/request/:id" element={<RequestDetailPage />} />
+          <Route path="/students" element={<StudentList />} />
+          <Route path="/student" element={<StudentList />} />
+          
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
-          <Route path="/global" element={<GlobalPage />} />
-          <Route path="/community" element={<CommunityPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/careers" element={<CareersPage />} />
-          <Route path="/shipping" element={<ShippingPage />} />
-          <Route path="/shipping-info" element={<ShippingInfoPage />} />
-          <Route path="/affiliates" element={<AffiliatesPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/cookies" element={<CookiesPage />} />
-          <Route path="/legal" element={<LegalPage />} />
-          <Route path="/apply" element={<JobApplicationPage />} />
-          <Route path="/help" element={<HelpCenterPage />} />
         </Routes>
       </div>
     </BrowserRouter>

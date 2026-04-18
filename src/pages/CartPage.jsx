@@ -2,9 +2,12 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { addItem, removeItem, removeFromCart } from '../store/slices/cartSlice';
+import { addItem, removeItem, removeFromCart, clearCart } from '../store/slices/cartSlice';
+import { addOrder } from '../store/slices/orderSlice';
+import { addCustomer } from '../store/slices/customerSlice';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import toast from 'react-hot-toast';
 
 const CartPage = () => {
   const dispatch = useAppDispatch();
@@ -13,6 +16,24 @@ const CartPage = () => {
   const shipping = totalQuantity > 0 ? 15.00 : 0;
   const tax = totalPrice * 0.08;
   const grandTotal = totalPrice + shipping + tax;
+
+  const handleCheckout = () => {
+    const newOrder = {
+      id: `#ORD-${Math.floor(Math.random() * 9000) + 1000}`,
+      customer: 'John Doe', // Mock user
+      email: 'john@example.com',
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      status: 'Pending',
+      amount: grandTotal,
+      items: totalQuantity,
+      products: items.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity, image: item.image }))
+    };
+
+    dispatch(addOrder(newOrder));
+    dispatch(addCustomer({ name: 'John Doe', email: 'john@example.com', spent: grandTotal }));
+    dispatch(clearCart());
+    toast.success('Order placed successfully!');
+  };
 
   if (items.length === 0) {
     return (
@@ -130,7 +151,7 @@ const CartPage = () => {
               </div>
 
               <button 
-                onClick={() => console.log('Processing...')}
+                onClick={handleCheckout}
                 className="w-full py-5 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 flex items-center justify-center gap-2 group"
               >
                 Proceed to Checkout
